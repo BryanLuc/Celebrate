@@ -3,10 +3,8 @@ package br.ufop.brTomaz.model.dao.impl;
 import br.ufop.brTomaz.model.dao.EnterpriseDao;
 import br.ufop.brTomaz.model.entities.Enterprise;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
 
 public class EnterpriseDaoJDBC implements EnterpriseDao {
@@ -29,8 +27,10 @@ public class EnterpriseDaoJDBC implements EnterpriseDao {
             preparedStatement.setString(2, enterprise.getPhone());
             preparedStatement.setString(3, enterprise.getPlace());
             preparedStatement.setString(4, enterprise.getName());
-
             preparedStatement.executeUpdate();
+
+            Integer id = this.getGeneratedId();
+            enterprise.setId(id);
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -38,22 +38,17 @@ public class EnterpriseDaoJDBC implements EnterpriseDao {
     }
 
     @Override
-    public Enterprise findByCnpj(String cnpj) {
-        String sql = "SELECT E.* FROM empresa as E where cnpj = ?";
+    public Enterprise findById(Integer id) {
+        String sql = "SELECT E.* FROM empresa as E where id = ?";
         PreparedStatement statement = null;
         try {
             statement = this.connection.prepareStatement(sql);
-            statement.setString(1, cnpj);
+            statement.setInt(1, id);
 
             ResultSet resultSet = statement.executeQuery();
-            if(resultSet.next()){
-                String phone = resultSet.getString("telefone");
-                String address = resultSet.getString("endereco");
-                String name = resultSet.getString("nome");
-                return new Enterprise(cnpj, phone, address, name);
-            }
-            else
-                return null;
+
+            return resultSet.next() ? this.getEnterprise(resultSet) : null;
+
         } catch (SQLException e) {
             e.printStackTrace();
             return null;
@@ -62,12 +57,50 @@ public class EnterpriseDaoJDBC implements EnterpriseDao {
     }
 
     @Override
-    public void deleteByCnpj(String cnpj) {
+    public void deleteById(Integer id) {
 
     }
 
     @Override
     public List<Enterprise> findAll() {
-        return null;
+        List<Enterprise> enterpriseList = new ArrayList<>();
+        String sql = "SELECT E.* FROM empresa AS E";
+
+        try {
+            Statement statement = this.connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(sql);
+
+            while (resultSet.next()){
+                Enterprise enterprise = this.getEnterprise(resultSet);
+                enterpriseList.add(enterprise);
+            }
+
+            return enterpriseList;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    private Enterprise getEnterprise(ResultSet resultSet) throws SQLException {
+        Integer id = resultSet.getInt("id");
+        String cnpj = resultSet.getString("cnpj");
+        String phone = resultSet.getString("telefone");
+        String name = resultSet.getString("nome");
+        String address = resultSet.getString("endereco");
+
+        Enterprise enterprise = new Enterprise(cnpj, phone, address, name);
+        enterprise.setId(id);
+
+        return enterprise;
+    }
+
+    private Integer getGeneratedId() throws SQLException {
+        String sql = "SELECT MAX(id) FROM empresa";
+        Statement statement = this.connection.createStatement();
+        ResultSet resultSet = statement.executeQuery(sql);
+
+        return (resultSet.next()) ? resultSet.getInt(1) : -1;
     }
 }
